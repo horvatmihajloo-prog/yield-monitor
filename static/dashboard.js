@@ -37,7 +37,17 @@ const dailyBarDesignPlugin = {
     const { ctx } = chart;
     const meta = chart.getDatasetMeta(0);
     const data = chart.data.datasets[0].data || [];
+    const yScale = chart.scales?.y;
     if (!meta?.data?.length) return;
+    if (!yScale) return;
+
+    const levelCount = 4;
+    const maxValue = Number.isFinite(yScale.max) && yScale.max > 0 ? yScale.max : Math.max(...data, 0);
+    const levelPixels = [];
+    for (let level = 1; level < levelCount; level += 1) {
+      const levelValue = (maxValue * level) / levelCount;
+      levelPixels.push(yScale.getPixelForValue(levelValue));
+    }
 
     ctx.save();
     meta.data.forEach((bar, idx) => {
@@ -47,11 +57,11 @@ const dailyBarDesignPlugin = {
       const right = props.x + props.width / 2 - 2;
       const height = props.base - props.y;
 
-      // Draw segmented separator lines inside each bar.
+      // Draw shared level separators inside each bar, aligned to chart-wide levels.
       ctx.strokeStyle = "#163a5a";
       ctx.lineWidth = 1;
-      for (let i = 1; i <= 3; i += 1) {
-        const lineY = props.base - (height * i) / 4;
+      for (const lineY of levelPixels) {
+        if (lineY <= props.y || lineY >= props.base) continue;
         ctx.beginPath();
         ctx.moveTo(left, lineY);
         ctx.lineTo(right, lineY);
