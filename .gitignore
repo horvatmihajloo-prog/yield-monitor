@@ -32,5 +32,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Env files
+.env
+
 # Local database
 *.db

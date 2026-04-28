@@ -133,10 +133,13 @@ def get_daily(db: Session = Depends(get_db)) -> list[DailyOut]:
     start_date = datetime.combine(days[0], datetime.min.time())
 
     raw_counts = get_daily_counts_query(db, start_date)
-    by_day = {row.day: row.count for row in raw_counts}
+    by_day: dict[str, int] = {}
+    for row in raw_counts:
+        key = row.day.isoformat() if hasattr(row.day, "isoformat") else str(row.day)
+        by_day[key] = int(row.count)
 
     results: list[DailyOut] = []
     for day in days:
         iso_day = day.isoformat()
-        results.append(DailyOut(date=iso_day, count=int(by_day.get(iso_day, 0))))
+        results.append(DailyOut(date=iso_day, count=by_day.get(iso_day, 0)))
     return results

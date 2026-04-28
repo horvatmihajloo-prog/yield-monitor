@@ -4,3 +4,10 @@ sqlalchemy
 jinja2
 selenium
 psycopg[binary]
+fastapi
+jinja2
+psycopg[binary]
+pydantic
+sqlalchemy
+starlette
+uvicorn
