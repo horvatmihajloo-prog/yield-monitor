@@ -17,7 +17,8 @@ This project implements the practical exam requirements for a Yield Monitor dash
 
 - `main.py` - FastAPI entry point and API routes
 - `database.py` - database setup and model
-- `templates/index.html` - dashboard UI
+- `templates/index.html` - dashboard HTML/CSS layout
+- `static/dashboard.js` - dashboard JavaScript logic (charts, modal events, API calls)
 - `test_yield.py` - Selenium validation script
 - `static/test_yield.py` - browser-viewable script endpoint via `/static/test_yield.py`
 - `requirements.txt` - dependencies
@@ -76,7 +77,8 @@ python test_yield.py
 ```
 
 Expected output should show:
-- `PASS: Expected 60%, got 60%` (if successful)
+- For a clean database: `PASS: Expected 60.0%, got 60.0%`
+- If existing records are already present, expected value is calculated from current baseline data plus the 5 inserted test records.
 
 ## Deployment
 

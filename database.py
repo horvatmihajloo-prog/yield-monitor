@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime
 import os
 
@@ -37,7 +38,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
 
-def get_daily_counts_query(session: Session, start_date: datetime):
+def get_daily_counts_query(session: Session, start_date: datetime) -> list[Any]:
     return (
         session.query(
             func.date(ManualTest.timestamp).label("day"),

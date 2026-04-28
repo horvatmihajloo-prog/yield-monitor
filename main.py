@@ -67,12 +67,12 @@ def on_startup() -> None:
 
 
 @app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request):
+def dashboard(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "index.html", {"request": request})
 
 
 @app.post("/tests", response_model=TestOut)
-def create_test(test: TestCreate, db: Session = Depends(get_db)):
+def create_test(test: TestCreate, db: Session = Depends(get_db)) -> TestOut:
     serial_number = test.serial_number.strip()
     if not serial_number:
         raise HTTPException(status_code=400, detail="Serial number cannot be empty")
@@ -92,12 +92,12 @@ def create_test(test: TestCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/tests", response_model=list[TestOut])
-def get_tests(db: Session = Depends(get_db)):
+def get_tests(db: Session = Depends(get_db)) -> list[TestOut]:
     return db.query(ManualTest).order_by(ManualTest.timestamp.desc()).all()
 
 
 @app.get("/stats", response_model=list[PartStatsOut])
-def get_stats(db: Session = Depends(get_db)):
+def get_stats(db: Session = Depends(get_db)) -> list[PartStatsOut]:
     rows = (
         db.query(
             ManualTest.part_number.label("part_number"),
@@ -127,7 +127,7 @@ def get_stats(db: Session = Depends(get_db)):
 
 
 @app.get("/daily", response_model=list[DailyOut])
-def get_daily(db: Session = Depends(get_db)):
+def get_daily(db: Session = Depends(get_db)) -> list[DailyOut]:
     today = datetime.utcnow().date()
     days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
     start_date = datetime.combine(days[0], datetime.min.time())

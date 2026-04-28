@@ -23,8 +23,6 @@ def run_test():
         tested_before = int(driver.find_element(By.ID, "testedVal").text.strip())
         passed_before = int(driver.find_element(By.ID, "passedVal").text.strip())
 
-        wait.until(EC.element_to_be_clickable((By.ID, "manualTestBtn"))).click()
-
         records = [
             ("SER001", True),
             ("SER002", True),
@@ -34,6 +32,7 @@ def run_test():
         ]
 
         for serial, is_pass in records:
+            wait.until(EC.element_to_be_clickable((By.ID, "manualTestBtn"))).click()
             serial_input = wait.until(EC.presence_of_element_located((By.ID, "serialNumber")))
             serial_input.clear()
             serial_input.send_keys(serial)
@@ -47,10 +46,6 @@ def run_test():
 
             driver.find_element(By.ID, "addTestBtn").click()
             time.sleep(0.4)
-
-        # Modal no longer has a close button; hide it to interact with dashboard.
-        driver.execute_script("document.getElementById('manualModal').style.display = 'none';")
-        time.sleep(0.5)
 
         wait.until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, f'#partLegend [data-part="{TARGET_PART}"]'))
