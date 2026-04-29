@@ -41,6 +41,10 @@ uvicorn main:app --reload
 - Dashboard: [http://localhost:8000](http://localhost:8000)
 - API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
+## Published App
+
+- Dashboard: [https://yield-monitor--horvatmihajloo.replit.app/](https://yield-monitor--horvatmihajloo.replit.app/)
+
 ## Database Configuration
 
 The app reads `DATABASE_URL` from environment variables:

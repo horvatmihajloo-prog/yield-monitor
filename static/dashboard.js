@@ -1,6 +1,9 @@
 let dailyChart;
 let pieChart;
 let statsData = [];
+let testsData = [];
+let dailyData = [];
+let selectedDailyDate = null;
 let gaugeLength = 0;
 const GAUGE_ARC_RATIO = 0.7;
 const doughnutCenterTextPlugin = {
@@ -131,20 +134,50 @@ async function fetchStatsData() {
   return res.json();
 }
 
+async function fetchTestsData() {
+  const res = await fetch("/tests");
+  return res.json();
+}
+
 async function parseErrorMessage(res) {
   try {
     const data = await res.json();
-    return data?.detail || "Unknown error";
+    if (typeof data?.detail === "string") return data.detail;
+    if (typeof data?.output === "string") return data.output;
+    return "Unknown error";
   } catch {
     return `${res.status} ${res.statusText}`.trim() || "Unknown error";
   }
 }
 
-function renderDailyChart(daily) {
-  const labels = daily.map((d) => formatShortDate(d.date));
-  const counts = daily.map((d) => d.count);
+function updateDailyMeta() {
+  const metaEl = document.getElementById("dailyMeta");
+  if (selectedDailyDate) {
+    const selected = dailyData.find((d) => d.date === selectedDailyDate);
+    const count = selected ? selected.count : 0;
+    metaEl.innerHTML = `${count} <span>units / ${formatShortDate(selectedDailyDate)}</span>`;
+    return;
+  }
+  const total = dailyData.reduce((sum, item) => sum + item.count, 0);
+  metaEl.innerHTML = `${total} <span>units / 7 days</span>`;
+}
+
+function renderDailyChart() {
+  const labels = dailyData.map((d) => formatShortDate(d.date));
+  const counts = dailyData.map((d) => d.count);
+  const selectedIndex = selectedDailyDate
+    ? dailyData.findIndex((d) => d.date === selectedDailyDate)
+    : -1;
   const total = counts.reduce((sum, value) => sum + value, 0);
-  document.getElementById("dailyMeta").innerHTML = `${total} <span>units / 7 days</span>`;
+  const hasSelection = selectedIndex >= 0;
+  const barColors = counts.map((_, idx) => {
+    if (!hasSelection) return "#2f6f92";
+    return idx === selectedIndex ? "#2de0c2" : "#1c4565";
+  });
+  if (!hasSelection && total === 0) {
+    // Keep same appearance when there is no data.
+    barColors.fill("#2f6f92");
+  }
   if (dailyChart) dailyChart.destroy();
   dailyChart = new Chart(document.getElementById("dailyChart"), {
     type: "bar",
@@ -153,7 +186,7 @@ function renderDailyChart(daily) {
       datasets: [{
         label: "Units Tested",
         data: counts,
-        backgroundColor: counts.map((_, idx) => idx === counts.length - 1 ? "#2de0c2" : "#2f6f92"),
+        backgroundColor: barColors,
         borderRadius: 5,
         borderSkipped: false,
         clip: false,
@@ -167,6 +200,18 @@ function renderDailyChart(daily) {
       maintainAspectRatio: false,
       layout: { padding: { top: 24 } },
       plugins: { legend: { display: false } },
+      onClick: (event, elements) => {
+        if (!elements.length) {
+          selectedDailyDate = null;
+          updateViewsForSelectedDate();
+          return;
+        }
+        const index = elements[0].index;
+        const clickedDate = dailyData[index]?.date;
+        if (!clickedDate) return;
+        selectedDailyDate = selectedDailyDate === clickedDate ? null : clickedDate;
+        updateViewsForSelectedDate();
+      },
       scales: {
         x: {
           ticks: { color: "#4f79a2", font: { size: 10, weight: "700" } },
@@ -238,15 +283,53 @@ function renderPieChart(stats) {
   }
 }
 
-function renderDashboard(daily, stats) {
+function buildStatsForDate(date) {
+  const aggregate = new Map(statsData.map((item) => [item.part_number, { total_tested: 0, passed: 0 }]));
+  const filteredTests = date
+    ? testsData.filter((item) => String(item.timestamp).slice(0, 10) === date)
+    : testsData;
+
+  filteredTests.forEach((item) => {
+    if (!aggregate.has(item.part_number)) {
+      aggregate.set(item.part_number, { total_tested: 0, passed: 0 });
+    }
+    const target = aggregate.get(item.part_number);
+    target.total_tested += 1;
+    if (item.status) target.passed += 1;
+  });
+
+  return Array.from(aggregate.entries()).map(([part_number, totals]) => {
+    const yield_percent = totals.total_tested
+      ? roundTo2((totals.passed / totals.total_tested) * 100)
+      : 0;
+    return { part_number, total_tested: totals.total_tested, passed: totals.passed, yield_percent };
+  });
+}
+
+function roundTo2(value) {
+  return Math.round(value * 100) / 100;
+}
+
+function updateViewsForSelectedDate() {
+  if (selectedDailyDate && !dailyData.some((item) => item.date === selectedDailyDate)) {
+    selectedDailyDate = null;
+  }
+  updateDailyMeta();
+  renderDailyChart();
+  const filteredStats = buildStatsForDate(selectedDailyDate);
+  renderPieChart(filteredStats);
+}
+
+function renderDashboard(daily, stats, tests) {
+  dailyData = daily;
   statsData = stats;
-  renderDailyChart(daily);
-  renderPieChart(statsData);
+  testsData = tests;
+  updateViewsForSelectedDate();
 }
 
 async function refreshDashboard() {
-  const [daily, stats] = await Promise.all([fetchDailyData(), fetchStatsData()]);
-  renderDashboard(daily, stats);
+  const [daily, stats, tests] = await Promise.all([fetchDailyData(), fetchStatsData(), fetchTestsData()]);
+  renderDashboard(daily, stats, tests);
 }
 
 async function addManualTest() {
