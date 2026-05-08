@@ -47,6 +47,11 @@
     .panel h2 {
       font-size: 10px; margin: 0 0 2px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
     }
+    .panel-title-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .week-controls { display: flex; gap: 6px; }
+    .week-controls button { padding: 5px 8px; font-size: 10px; }
     .panel .meta-value { font-size: 28px; font-weight: 700; color: #f2f8ff; margin-bottom: 8px; }
     .panel .meta-value span { font-size: 13px; color: var(--muted); font-weight: 500; }
     .chart-wrap { position: relative; width: 100%; margin-top: 50px; }
@@ -203,7 +208,14 @@
     <div class="app-shell">
     <div class="grid">
       <section class="panel">
-        <h2>Daily Testing Volume (Last 7 Days)</h2>
+        <div class="panel-title-row">
+          <h2>Daily Testing Volume</h2>
+          <div class="week-controls">
+            <button id="previousWeekBtn">Previous week</button>
+            <button id="todayWeekBtn">Today</button>
+            <button id="nextWeekBtn">Next week</button>
+          </div>
+        </div>
         <div id="dailyMeta" class="meta-value">0 <span>units / 7 days</span></div>
         <div class="chart-wrap chart-wrap-daily">
           <canvas id="dailyChart"></canvas>

@@ -4,6 +4,7 @@ let statsData = [];
 let testsData = [];
 let dailyData = [];
 let selectedDailyDate = null;
+let dailyWeekOffset = 0;
 let gaugeLength = 0;
 const GAUGE_ARC_RATIO = 0.7;
 const doughnutCenterTextPlugin = {
@@ -125,7 +126,7 @@ function updateGaugeStats(selected) {
 }
 
 async function fetchDailyData() {
-  const res = await fetch("/daily");
+  const res = await fetch(`/daily?week_offset=${dailyWeekOffset}`);
   return res.json();
 }
 
@@ -160,6 +161,10 @@ function updateDailyMeta() {
   }
   const total = dailyData.reduce((sum, item) => sum + item.count, 0);
   metaEl.innerHTML = `${total} <span>units / 7 days</span>`;
+}
+
+function updateWeekButtons() {
+  document.getElementById("todayWeekBtn").disabled = dailyWeekOffset === 0;
 }
 
 function renderDailyChart() {
@@ -206,6 +211,7 @@ function renderDailyChart() {
           updateViewsForSelectedDate();
           return;
         }
+        console.log(elements);
         const index = elements[0].index;
         const clickedDate = dailyData[index]?.date;
         if (!clickedDate) return;
@@ -324,6 +330,7 @@ function renderDashboard(daily, stats, tests) {
   dailyData = daily;
   statsData = stats;
   testsData = tests;
+  updateWeekButtons();
   updateViewsForSelectedDate();
 }
 
@@ -373,6 +380,21 @@ function setupUiEvents() {
   document.getElementById("addTestBtn").addEventListener("click", addManualTest);
   document.getElementById("viewApiBtn").addEventListener("click", () => window.open("/docs", "_blank"));
   document.getElementById("viewScriptBtn").addEventListener("click", () => window.open("/static/test_yield.py", "_blank"));
+  document.getElementById("previousWeekBtn").addEventListener("click", async () => {
+    dailyWeekOffset -= 1;
+    selectedDailyDate = null;
+    await refreshDashboard();
+  });
+  document.getElementById("todayWeekBtn").addEventListener("click", async () => {
+    dailyWeekOffset = 0;
+    selectedDailyDate = null;
+    await refreshDashboard();
+  });
+  document.getElementById("nextWeekBtn").addEventListener("click", async () => {
+    dailyWeekOffset += 1;
+    selectedDailyDate = null;
+    await refreshDashboard();
+  });
   window.addEventListener("click", (event) => {
     if (event.target === modal) modal.style.display = "none";
   });

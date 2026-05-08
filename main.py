@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Generator
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -127,8 +127,11 @@ def get_stats(db: Session = Depends(get_db)) -> list[PartStatsOut]:
 
 
 @app.get("/daily", response_model=list[DailyOut])
-def get_daily(db: Session = Depends(get_db)) -> list[DailyOut]:
-    today = datetime.utcnow().date()
+def get_daily(
+    week_offset: int = Query(0, ge=-52, le=52),
+    db: Session = Depends(get_db),
+) -> list[DailyOut]:
+    today = datetime.utcnow().date() + timedelta(days=week_offset * 7)
     days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
     start_date = datetime.combine(days[0], datetime.min.time())
 
