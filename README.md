@@ -1,27 +1,29 @@
 # Yield Monitor Web Application
 
 This project implements the practical exam requirements for a Yield Monitor dashboard:
+
 - FastAPI backend with configurable database (SQLite or PostgreSQL)
-- Dashboard with bar chart, pie chart, and dynamic yield gauge
-- Manual test entry form in a modal
-- Selenium script to validate 60% yield for part `001PN001`
+- Dashboard with bar chart (7-day window with week navigation), pie chart, and dynamic yield gauge
+- Part selection via legend; yield panel shows tested/passed counts for the selected part
+- Manual test entry form in a modal (serial, part number, pass/fail)
+- Selenium script to validate yield for part `001PN001` after inserting five controlled records
 
 ## Tech Stack
 
-- **Backend:** Python, FastAPI, SQLAlchemy
+- **Backend:** Python, FastAPI, Pydantic, SQLAlchemy, Starlette
 - **Database:** SQLite (default) or PostgreSQL via `DATABASE_URL`
 - **Frontend:** HTML, CSS, JavaScript, Chart.js
-- **Automation:** Selenium (Python)
+- **Automation:** Selenium (Python), Chrome
 
 ## Project Structure
 
-- `main.py` - FastAPI entry point and API routes
-- `database.py` - database setup and model
-- `templates/index.html` - dashboard HTML/CSS layout
-- `static/dashboard.js` - dashboard JavaScript logic (charts, modal events, API calls)
-- `test_yield.py` - Selenium validation script
-- `static/test_yield.py` - browser-viewable script endpoint via `/static/test_yield.py`
-- `requirements.txt` - dependencies
+- `main.py` — FastAPI app, routes, and request/response models
+- `database.py` — engine/session setup, `ManualTest` model, `ALLOWED_PART_NUMBERS`, daily-count query helper
+- `templates/index.html` — dashboard layout and styles
+- `static/dashboard.js` — charts, modal, API calls, week controls for the daily chart
+- `test_yield.py` — Selenium validation script (project root)
+- `static/test_yield.py` — copy served under `/static/` if you want to open the script in the browser
+- `requirements.txt` — Python dependencies
 
 ## Run Locally
 
@@ -31,13 +33,14 @@ This project implements the practical exam requirements for a Yield Monitor dash
 pip install -r requirements.txt
 ```
 
-2. Start server:
+2. Start the server:
 
 ```bash
 uvicorn main:app --reload
 ```
 
-3. Open app:
+3. Open the app:
+
 - Dashboard: [http://localhost:8000](http://localhost:8000)
 - API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
@@ -47,7 +50,7 @@ uvicorn main:app --reload
 
 ## Database Configuration
 
-The app reads `DATABASE_URL` from environment variables:
+The app reads `DATABASE_URL` from the environment:
 
 - If `DATABASE_URL` is not set, it uses local SQLite:
   - `sqlite:///./yield_monitor.db`
@@ -56,33 +59,48 @@ The app reads `DATABASE_URL` from environment variables:
 Examples:
 
 ```bash
-# SQLite (default behavior)
+# SQLite (default)
 python -m uvicorn main:app --reload
 
-# PostgreSQL
+# PostgreSQL (Windows cmd example)
 set DATABASE_URL=postgresql://user:password@host:5432/dbname
 python -m uvicorn main:app --reload
 ```
 
+## Part Numbers
+
+`POST /tests` only accepts these part numbers (defined in `database.py`):
+
+- `001PN001`
+- `002PN002`
+- `003PN003`
+
+`GET /stats` returns one row per allowed part (including parts with no tests yet).
+
 ## API Endpoints
 
-- `POST /tests` - insert manual test record
-- `GET /tests` - list all records
-- `GET /stats` - per-part yield statistics
-- `GET /daily` - daily test count for last 7 days
+- `POST /tests` — insert a manual test (`serial_number`, `part_number`, `status`)
+- `GET /tests` — list all tests, newest first
+- `GET /stats` — per-part totals, passes, and yield percentage for every allowed part
+- `GET /daily` — seven consecutive days of test counts  
+  - Optional query: `week_offset` (integer, `-52` … `52`, default `0`). Each step shifts the window by one week backward (`negative`) or forward; `0` is the current week ending today (UTC).
 
 ## Run Selenium Test
 
-1. Ensure app is running at `http://localhost:8000`.
-2. Run:
+1. Ensure the app is running at `http://localhost:8000` (or change `BASE_URL` in `test_yield.py`).
+2. Use a Chrome installation compatible with your Selenium/WebDriver setup.
+3. Run:
 
 ```bash
 python test_yield.py
 ```
 
-Expected output should show:
-- For a clean database: `PASS: Expected 60.0%, got 60.0%`
-- If existing records are already present, expected value is calculated from current baseline data plus the 5 inserted test records.
+The script selects `001PN001` in the legend, records baseline tested/passed counts, opens the modal, adds five tests (three pass, two fail), re-selects the part, and compares the gauge percentage to the expected value.
+
+Expected output:
+
+- On a consistent baseline: `PASS: Expected …%, got …%`
+- If the database already had data for that part, the expected percentage is derived from the baseline plus those five rows.
 
 ## Deployment
 
