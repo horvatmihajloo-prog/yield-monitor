@@ -2,9 +2,11 @@ from typing import Any
 from datetime import datetime
 import os
 
+from dotenv import load_dotenv
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine, func
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./yield_monitor.db")
 

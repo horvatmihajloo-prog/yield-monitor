@@ -21,6 +21,8 @@ This project implements the practical exam requirements for a Yield Monitor dash
 - `database.py` — engine/session setup, `ManualTest` model, `ALLOWED_PART_NUMBERS`, daily-count query helper
 - `templates/index.html` — dashboard layout and styles
 - `static/dashboard.js` — charts, modal, API calls, week controls for the daily chart
+- `static/chatbot.js` — floating AI chat widget
+- `chatbot_service.py` — OpenAI integration with database query tools
 - `test_yield.py` — Selenium validation script (project root)
 - `static/test_yield.py` — copy served under `/static/` if you want to open the script in the browser
 - `requirements.txt` — Python dependencies
@@ -56,6 +58,31 @@ The app reads `DATABASE_URL` from the environment:
   - `sqlite:///./yield_monitor.db`
 - If `DATABASE_URL` is set to PostgreSQL (for Replit/production), it uses that DB.
 
+## AI Chatbot
+
+The dashboard includes a floating **Ask AI** assistant that uses OpenAI to answer questions about stored test data (quantities, yield, daily volume, recent records).
+
+Set these environment variables (or add them to a local `.env` file):
+
+```bash
+# Required for the chatbot
+set OPENAI_API_KEY=sk-...
+
+# Optional (defaults to gpt-4o-mini)
+set OPENAI_MODEL=gpt-4o-mini
+```
+
+The app loads variables from `.env` automatically on startup. That file is gitignored and should not be committed.
+
+Example questions:
+
+- "What is the yield for part 001PN001?"
+- "How many tests were recorded in the last 7 days?"
+- "Show me the most recent failed tests."
+- "What was the overall pass rate today?"
+
+The chatbot uses function calling to query the database before answering, so responses are grounded in live data.
+
 Examples:
 
 ```bash
@@ -84,6 +111,7 @@ python -m uvicorn main:app --reload
 - `GET /stats` — per-part totals, passes, and yield percentage for every allowed part
 - `GET /daily` — seven consecutive days of test counts  
   - Optional query: `week_offset` (integer, `-52` … `52`, default `0`). Each step shifts the window by one week backward (`negative`) or forward; `0` is the current week ending today (UTC).
+- `POST /chat` — stream AI assistant replies as Server-Sent Events (requires `OPENAI_API_KEY`)
 
 ## Run Selenium Test
 

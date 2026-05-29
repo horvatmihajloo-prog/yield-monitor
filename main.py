@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 from typing import Generator
 
+import json
+
 from fastapi import Depends, FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -10,6 +12,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
+from chatbot_service import stream_chat_with_data
 from database import (
     ALLOWED_PART_NUMBERS,
     ManualTest,
@@ -51,6 +54,15 @@ class PartStatsOut(BaseModel):
 class DailyOut(BaseModel):
     date: str
     count: int
+
+
+class ChatMessage(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(min_length=1)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -146,3 +158,32 @@ def get_daily(
         iso_day = day.isoformat()
         results.append(DailyOut(date=iso_day, count=by_day.get(iso_day, 0)))
     return results
+
+
+@app.post("/chat")
+def chat(request: ChatRequest, db: Session = Depends(get_db)) -> StreamingResponse:
+    message_payload = [
+        {"role": message.role, "content": message.content} for message in request.messages
+    ]
+
+    def event_stream():
+        try:
+            for event in stream_chat_with_data(db, message_payload):
+                yield f"data: {json.dumps(event)}\n\n"
+            yield "data: [DONE]\n\n"
+        except ValueError as exc:
+            yield f"data: {json.dumps({'type': 'error', 'content': str(exc)})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'type': 'error', 'content': f'Chat service error: {exc}'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
