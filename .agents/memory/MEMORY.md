@@ -1,0 +1,1 @@
+- [Non-fatal DB startup pattern](non-fatal-db-startup.md) — must use background-thread retry for DB init; user's GitHub pushes may overwrite this pattern each time

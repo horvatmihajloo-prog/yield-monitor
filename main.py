@@ -1,3 +1,6 @@
+import threading
+import time
+import logging
 from datetime import datetime, timedelta
 from typing import Generator
 
@@ -25,6 +28,30 @@ from database import (
 app = FastAPI(title="Yield Monitor")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+_db_ready = False
+_db_lock = threading.Lock()
+
+
+def _init_db_background() -> None:
+    global _db_ready
+    delay = 1
+    while True:
+        try:
+            init_db()
+            with _db_lock:
+                _db_ready = True
+            logging.info("Database initialised successfully.")
+            return
+        except Exception as exc:
+            logging.warning("DB not ready (%s); retrying in %ds…", exc, delay)
+            time.sleep(delay)
+            delay = min(delay * 2, 30)
+
+
+def _require_db() -> None:
+    if not _db_ready:
+        raise HTTPException(status_code=503, detail="Database not ready yet, please retry shortly.")
 
 
 class TestCreate(BaseModel):
@@ -75,7 +102,7 @@ def get_db() -> Generator[Session, None, None]:
 
 @app.on_event("startup")
 def on_startup() -> None:
-    init_db()
+    threading.Thread(target=_init_db_background, daemon=True).start()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -84,7 +111,7 @@ def dashboard(request: Request) -> HTMLResponse:
 
 
 @app.post("/tests", response_model=TestOut)
-def create_test(test: TestCreate, db: Session = Depends(get_db)) -> TestOut:
+def create_test(test: TestCreate, db: Session = Depends(get_db), _: None = Depends(_require_db)) -> TestOut:
     serial_number = test.serial_number.strip()
     if not serial_number:
         raise HTTPException(status_code=400, detail="Serial number cannot be empty")
@@ -104,12 +131,12 @@ def create_test(test: TestCreate, db: Session = Depends(get_db)) -> TestOut:
 
 
 @app.get("/tests", response_model=list[TestOut])
-def get_tests(db: Session = Depends(get_db)) -> list[TestOut]:
+def get_tests(db: Session = Depends(get_db), _: None = Depends(_require_db)) -> list[TestOut]:
     return db.query(ManualTest).order_by(ManualTest.timestamp.desc()).all()
 
 
 @app.get("/stats", response_model=list[PartStatsOut])
-def get_stats(db: Session = Depends(get_db)) -> list[PartStatsOut]:
+def get_stats(db: Session = Depends(get_db), _: None = Depends(_require_db)) -> list[PartStatsOut]:
     rows = (
         db.query(
             ManualTest.part_number.label("part_number"),
@@ -142,6 +169,7 @@ def get_stats(db: Session = Depends(get_db)) -> list[PartStatsOut]:
 def get_daily(
     week_offset: int = Query(0, ge=-52, le=52),
     db: Session = Depends(get_db),
+    _: None = Depends(_require_db),
 ) -> list[DailyOut]:
     today = datetime.utcnow().date() + timedelta(days=week_offset * 7)
     days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
@@ -161,7 +189,7 @@ def get_daily(
 
 
 @app.post("/chat")
-def chat(request: ChatRequest, db: Session = Depends(get_db)) -> StreamingResponse:
+def chat(request: ChatRequest, db: Session = Depends(get_db), _: None = Depends(_require_db)) -> StreamingResponse:
     message_payload = [
         {"role": message.role, "content": message.content} for message in request.messages
     ]
